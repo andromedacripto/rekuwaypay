@@ -25,10 +25,11 @@ import { apiTxToTransaction } from '@/lib/types'
 
 const ARC_TESTNET_ID = 5042002
 
-type NavItem = { id: NavScreen; label: string; icon: React.ReactNode }
+type NavItem = { id: NavScreen | 'pagar'; label: string; icon: React.ReactNode }
 const NAV_ITEMS: NavItem[] = [
   { id: 'cobrar', label: 'Cobrar', icon: <QrCode className="size-5" /> },
   { id: 'receber', label: 'Receber', icon: <ArrowDownLeft className="size-5" /> },
+  { id: 'pagar', label: 'Pagar', icon: <ArrowUpRight className="size-5" /> },
   { id: 'transacoes', label: 'Transações', icon: <Wallet className="size-5" /> },
   { id: 'configuracoes', label: 'Ajustes', icon: <Settings className="size-5" /> },
 ]
@@ -88,7 +89,11 @@ export function RekuwayApp() {
       .catch(() => undefined)
   }, [activeAddress])
 
-  function navigate(nav: NavScreen) {
+  function navigate(nav: NavScreen | 'pagar') {
+    if (nav === 'pagar') {
+      setScreen('pagar')
+      return
+    }
     setActiveNav(nav)
     setScreen(nav)
   }
@@ -286,15 +291,6 @@ export function RekuwayApp() {
               {item.label}
             </button>
           ))}
-
-          <button
-            onClick={() => setScreen('pagar')}
-            className="mt-2 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all"
-            style={{ color: screen === 'pagar' ? 'var(--ink)' : 'var(--muted)' }}
-          >
-            <ArrowUpRight className="size-5" />
-            Pagar / Enviar
-          </button>
         </nav>
 
         {/* Balance + wallet */}
@@ -313,22 +309,44 @@ export function RekuwayApp() {
           </p>
 
           {wallet.account ? (
-            <div
-              className="flex items-center gap-2 rounded-xl px-3 py-2"
-              style={{ background: 'var(--surface-muted)' }}
-            >
-              <span className="size-2 rounded-full" style={{ background: 'var(--success)' }} />
-              <div className="min-w-0">
-                <p className="text-xs font-medium" style={{ color: 'var(--ink)' }}>
-                  Passkey
-                </p>
-                <p className="truncate font-mono text-xs" style={{ color: 'var(--muted)' }}>
-                  {wallet.address?.slice(0, 6)}...{wallet.address?.slice(-4)}
-                </p>
+            <div className="flex flex-col gap-2">
+              <div
+                className="flex items-center gap-2 rounded-xl px-3 py-2"
+                style={{ background: 'var(--surface-muted)' }}
+              >
+                <span className="size-2 rounded-full" style={{ background: 'var(--success)' }} />
+                <div className="min-w-0">
+                  <p className="text-xs font-medium" style={{ color: 'var(--ink)' }}>
+                    {userHandle ? `${userHandle}.rekuwaypay` : 'Passkey'}
+                  </p>
+                  <p className="truncate font-mono text-xs" style={{ color: 'var(--muted)' }}>
+                    {wallet.address?.slice(0, 6)}...{wallet.address?.slice(-4)}
+                  </p>
+                </div>
               </div>
+              <a
+                href="https://faucet.circle.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-xl px-3 py-2 text-center text-xs font-semibold"
+                style={{ background: 'var(--surface-strong)', color: 'var(--ink)' }}
+              >
+                + Obter USDC testnet
+              </a>
             </div>
           ) : (
-            <ConnectKitButton />
+            <div className="flex flex-col gap-2">
+              <ConnectKitButton />
+              <a
+                href="https://faucet.circle.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-xl px-3 py-2 text-center text-xs font-semibold"
+                style={{ background: 'var(--surface-strong)', color: 'var(--ink)' }}
+              >
+                + Obter USDC testnet
+              </a>
+            </div>
           )}
         </div>
       </aside>

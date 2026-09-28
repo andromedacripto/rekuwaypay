@@ -38,13 +38,20 @@ export function ReceberScreen({ address, handle }: ReceberScreenProps) {
         >
           Sua chave de pagamento
         </p>
-        <p className="display mt-2 text-2xl font-bold" style={{ color: 'var(--ink)' }}>
-          {handle}.rekuwaypay
-        </p>
+        {handle ? (
+          <p className="display mt-2 text-2xl font-bold" style={{ color: 'var(--ink)' }}>
+            {handle}.rekuwaypay
+          </p>
+        ) : (
+          <p className="mt-2 text-sm italic" style={{ color: 'var(--muted)' }}>
+            Faça login com passkey para ver sua chave
+          </p>
+        )}
         <p className="mt-1 text-sm" style={{ color: 'var(--muted)' }}>
           Compartilhe essa chave para receber USDC de qualquer pessoa
         </p>
         <button
+          disabled={!handle}
           onClick={() => copy(`${handle}.rekuwaypay`, setCopiedHandle)}
           className="mt-4 flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all active:scale-95"
           style={{ background: 'var(--surface-muted)', color: 'var(--ink)' }}
@@ -57,6 +64,21 @@ export function ReceberScreen({ address, handle }: ReceberScreenProps) {
           {copiedHandle ? 'Copiado!' : 'Copiar chave'}
         </button>
       </div>
+
+      {/* Faucet */}
+      <a
+        href="https://faucet.circle.com"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mb-4 flex items-center justify-center gap-2 rounded-2xl py-3 text-sm font-semibold"
+        style={{
+          background: 'var(--surface-card)',
+          border: '1px solid var(--border)',
+          color: 'var(--ink)',
+        }}
+      >
+        🚰 Obter USDC testnet (faucet)
+      </a>
 
       {/* Address card (advanced) */}
       <div
