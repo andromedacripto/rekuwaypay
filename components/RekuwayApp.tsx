@@ -44,6 +44,7 @@ export function RekuwayApp() {
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null)
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [lastReceivedTx, setLastReceivedTx] = useState<Partial<Transaction>>({})
+  const [userHandle, setUserHandle] = useState<string>('')
 
   // Active address: passkey smart wallet takes priority
   const activeAddress = (wallet.address ?? wagmiAddress ?? null) as `0x${string}` | null
@@ -75,6 +76,17 @@ export function RekuwayApp() {
   useEffect(() => {
     void loadTransactions()
   }, [loadTransactions])
+
+  // Load the user's handle from DB when address is known
+  useEffect(() => {
+    if (!activeAddress) return
+    fetch(`/api/users?address=${activeAddress}`)
+      .then((r) => r.json())
+      .then((d: { handle?: string }) => {
+        if (d.handle) setUserHandle(d.handle)
+      })
+      .catch(() => undefined)
+  }, [activeAddress])
 
   function navigate(nav: NavScreen) {
     setActiveNav(nav)
@@ -188,7 +200,7 @@ export function RekuwayApp() {
       case 'detalhes-transacao':
         return <DetalhesTransacaoScreen tx={selectedTx ?? {}} onBack={() => setScreen(activeNav)} />
       case 'receber':
-        return <ReceberScreen address={activeAddress ?? ''} handle="" />
+        return <ReceberScreen address={activeAddress ?? ''} handle={userHandle} />
       case 'transacoes':
         return (
           <TransacoesScreen

@@ -49,12 +49,19 @@ export function useModularWallet(): ModularWalletSession {
       const { account: acc } = await registerPasskey(username)
       setAccount(acc)
       setState('ready')
-      // Persist wallet to DB
-      await fetch('/api/wallets', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address: acc.address, label: username }),
-      })
+      // Persist wallet + handle to DB
+      await Promise.all([
+        fetch('/api/wallets', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ address: acc.address, label: username }),
+        }),
+        fetch('/api/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ handle: username, address: acc.address, credential: {} }),
+        }),
+      ])
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Erro ao registrar passkey'
       setError(msg)

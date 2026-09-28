@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronLeft, Loader2, CheckCircle, ExternalLink, AlertCircle } from 'lucide-react'
+import { ChevronLeft, Loader2, CheckCircle, ExternalLink, AlertCircle, Search } from 'lucide-react'
 import type { SmartAccount } from 'viem/account-abstraction'
 import { isAddress } from 'viem'
 import { sendUsdc } from '@/lib/modular-wallet'
@@ -15,19 +15,28 @@ interface PagarScreenProps {
   onSuccess: (txHash: string, amount: string, to: string) => void
 }
 
-type PayState = 'form' | 'sending' | 'success' | 'error'
+type PayState = 'form' | 'resolving' | 'resolved' | 'sending' | 'success' | 'error'
+
+interface ResolvedUser {
+  handle: string
+  address: string
+}
 
 export function PagarScreen({ account, onBack, onSuccess }: PagarScreenProps) {
-  const [step, setStep] = useState<'amount' | 'address'>('amount')
+  const [step, setStep] = useState<'amount' | 'destination'>('amount')
   const [amount, setAmount] = useState('0')
-  const [toAddress, setToAddress] = useState('')
+  const [destination, setDestination] = useState('') // what user types: handle or 0x
+  const [resolved, setResolved] = useState<ResolvedUser | null>(null)
   const [payState, setPayState] = useState<PayState>('form')
   const [txHash, setTxHash] = useState<string | null>(null)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   const displayAmount = amount === '0' ? '0.00' : parseFloat(amount).toFixed(2)
-  const isValidAddress = isAddress(toAddress)
   const amountNum = parseFloat(amount)
+
+  // Decide if the raw input looks like a handle (no 0x prefix)
+  const isHandleInput = destination.trim() !== '' && !destination.trim().startsWith('0x')
+  const isRawAddress = isAddress(destination.trim())
 
   function handleKey(key: string) {
     setAmount((prev) => {
@@ -41,29 +50,62 @@ export function PagarScreen({ account, onBack, onSuccess }: PagarScreenProps) {
     })
   }
 
+  // Resolve a handle like "landerson" or "landerson.rekuwaypay" → address
+  async function resolveHandle() {
+    const raw = destination
+      .trim()
+      .toLowerCase()
+      .replace(/\.rekuwaypay$/, '')
+    setPayState('resolving')
+    setErrorMsg(null)
+    setResolved(null)
+    try {
+      const res = await fetch(`/api/users?handle=${encodeURIComponent(raw)}`)
+      if (!res.ok) {
+        const data = (await res.json()) as { error?: string }
+        setErrorMsg(data.error ?? 'Usuário não encontrado')
+        setPayState('error')
+        return
+      }
+      const data = (await res.json()) as { handle: string; address: string }
+      setResolved(data)
+      setPayState('resolved')
+    } catch {
+      setErrorMsg('Erro ao buscar usuário')
+      setPayState('error')
+    }
+  }
+
+  // If raw address, set resolved directly
+  function useRawAddress() {
+    setResolved({ handle: '', address: destination.trim() })
+    setPayState('resolved')
+  }
+
   async function handleSend() {
-    if (!isValidAddress || amountNum <= 0) return
+    const toAddr = resolved?.address
+    if (!toAddr || amountNum <= 0) return
     setPayState('sending')
     setErrorMsg(null)
     try {
-      const hash = await sendUsdc(account, toAddress as `0x${string}`, displayAmount)
+      const hash = await sendUsdc(account, toAddr as `0x${string}`, displayAmount)
       setTxHash(hash)
       setPayState('success')
-      // Save to DB
       await fetch('/api/transactions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           amount: amountNum,
           amountStr: displayAmount,
-          toAddress,
+          toAddress: toAddr,
+          toHandle: resolved?.handle || null,
           fromAddress: account.address,
           status: 'completed',
           txHash: hash,
           type: 'sent',
         }),
       })
-      onSuccess(hash, displayAmount, toAddress)
+      onSuccess(hash, displayAmount, toAddr)
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Erro ao enviar'
       setErrorMsg(msg)
@@ -73,7 +115,7 @@ export function PagarScreen({ account, onBack, onSuccess }: PagarScreenProps) {
 
   const explorerUrl = txHash ? buildTxExplorerUrl(ARC_TESTNET_ID, txHash) : null
 
-  // ── Success ───────────────────────────────────────────────────────────────
+  // ── Success screen ─────────────────────────────────────────────────────────
   if (payState === 'success') {
     return (
       <div className="flex min-h-dvh flex-col items-center justify-center gap-6 px-5 py-10">
@@ -94,8 +136,13 @@ export function PagarScreen({ account, onBack, onSuccess }: PagarScreenProps) {
           <p className="mt-2 text-sm font-semibold" style={{ color: 'var(--success)' }}>
             Transferência enviada!
           </p>
-          <p className="mt-1 font-mono text-xs" style={{ color: 'var(--muted)' }}>
-            Para: {toAddress.slice(0, 6)}...{toAddress.slice(-4)}
+          <p className="mt-1 text-sm font-medium" style={{ color: 'var(--muted)' }}>
+            Para:{' '}
+            <span style={{ color: 'var(--ink)' }}>
+              {resolved?.handle
+                ? `${resolved.handle}.rekuwaypay`
+                : `${resolved?.address.slice(0, 6)}...${resolved?.address.slice(-4)}`}
+            </span>
           </p>
         </div>
 
@@ -126,13 +173,21 @@ export function PagarScreen({ account, onBack, onSuccess }: PagarScreenProps) {
     )
   }
 
-  // ── Form ──────────────────────────────────────────────────────────────────
   return (
     <div className="flex min-h-dvh flex-col" style={{ background: 'var(--bg)' }}>
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-4">
         <button
-          onClick={onBack}
+          onClick={
+            step === 'destination'
+              ? () => {
+                  setStep('amount')
+                  setPayState('form')
+                  setResolved(null)
+                  setDestination('')
+                }
+              : onBack
+          }
           className="rounded-xl p-2"
           style={{ background: 'var(--surface-muted)' }}
         >
@@ -144,7 +199,7 @@ export function PagarScreen({ account, onBack, onSuccess }: PagarScreenProps) {
       </div>
 
       {step === 'amount' ? (
-        // ── Step 1: Amount ─────────────────────────────────────────────────
+        // ── Step 1: Amount numpad ──────────────────────────────────────────────
         <div className="flex flex-1 flex-col px-4">
           <div className="mb-6 text-center">
             <p className="text-5xl font-bold tabular-nums" style={{ color: 'var(--ink)' }}>
@@ -158,7 +213,6 @@ export function PagarScreen({ account, onBack, onSuccess }: PagarScreenProps) {
             </p>
           </div>
 
-          {/* Numpad inline */}
           <div className="grid grid-cols-3 gap-3">
             {['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', '⌫'].map((k) => (
               <button
@@ -174,7 +228,7 @@ export function PagarScreen({ account, onBack, onSuccess }: PagarScreenProps) {
 
           <button
             disabled={amountNum <= 0}
-            onClick={() => setStep('address')}
+            onClick={() => setStep('destination')}
             className="mt-6 w-full rounded-2xl py-3.5 text-sm font-semibold transition-all active:scale-[0.98] disabled:opacity-40"
             style={{ background: 'var(--accent)', color: '#000' }}
           >
@@ -182,10 +236,11 @@ export function PagarScreen({ account, onBack, onSuccess }: PagarScreenProps) {
           </button>
         </div>
       ) : (
-        // ── Step 2: Address ────────────────────────────────────────────────
+        // ── Step 2: Destination ────────────────────────────────────────────────
         <div className="flex flex-1 flex-col px-4">
+          {/* Amount badge */}
           <div
-            className="mb-4 rounded-2xl px-4 py-3"
+            className="mb-5 rounded-2xl px-4 py-3"
             style={{ background: 'var(--surface-muted)' }}
           >
             <p className="text-xs" style={{ color: 'var(--muted)' }}>
@@ -200,31 +255,83 @@ export function PagarScreen({ account, onBack, onSuccess }: PagarScreenProps) {
           </div>
 
           <label
-            htmlFor="toAddress"
+            htmlFor="destination"
             className="mb-1.5 block text-xs font-medium"
             style={{ color: 'var(--muted)' }}
           >
-            Endereço da carteira destinatária
+            Chave Rekuway Pay ou endereço 0x
           </label>
-          <textarea
-            id="toAddress"
-            value={toAddress}
-            onChange={(e) => setToAddress(e.target.value.trim())}
-            placeholder="0x..."
-            rows={2}
-            className="w-full resize-none rounded-xl px-4 py-3 font-mono text-sm outline-none"
-            style={{
-              background: 'var(--surface-muted)',
-              color: 'var(--ink)',
-              border: `1px solid ${toAddress && isValidAddress ? 'var(--success)' : 'var(--border)'}`,
-            }}
-          />
-          {toAddress && !isValidAddress && (
-            <p className="mt-1 text-xs" style={{ color: 'var(--danger)' }}>
-              Endereço inválido
-            </p>
+          <div className="flex gap-2">
+            <input
+              id="destination"
+              value={destination}
+              onChange={(e) => {
+                setDestination(e.target.value)
+                setResolved(null)
+                setPayState('form')
+                setErrorMsg(null)
+              }}
+              placeholder="ex: landerson.rekuwaypay ou 0x..."
+              autoCapitalize="none"
+              className="flex-1 rounded-xl px-4 py-3 text-sm outline-none"
+              style={{
+                background: 'var(--surface-muted)',
+                color: 'var(--ink)',
+                border: `1px solid ${payState === 'resolved' ? 'var(--success)' : payState === 'error' ? 'var(--danger)' : 'var(--border)'}`,
+              }}
+            />
+            {isHandleInput && payState !== 'resolved' && (
+              <button
+                onClick={resolveHandle}
+                disabled={payState === 'resolving'}
+                className="rounded-xl px-4 py-3 text-sm font-semibold transition-all active:scale-95 disabled:opacity-40"
+                style={{
+                  background: 'var(--surface-card)',
+                  color: 'var(--ink)',
+                  border: '1px solid var(--border)',
+                }}
+              >
+                {payState === 'resolving' ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Search className="size-4" />
+                )}
+              </button>
+            )}
+            {isRawAddress && !isHandleInput && payState !== 'resolved' && (
+              <button
+                onClick={useRawAddress}
+                className="rounded-xl px-4 py-3 text-sm font-semibold transition-all active:scale-95"
+                style={{
+                  background: 'var(--surface-card)',
+                  color: 'var(--ink)',
+                  border: '1px solid var(--border)',
+                }}
+              >
+                Usar
+              </button>
+            )}
+          </div>
+
+          {/* Resolved user preview */}
+          {payState === 'resolved' && resolved && (
+            <div
+              className="mt-3 rounded-xl px-4 py-3"
+              style={{
+                background: 'rgba(34,197,94,0.08)',
+                border: '1px solid rgba(34,197,94,0.2)',
+              }}
+            >
+              <p className="text-xs font-medium" style={{ color: 'var(--success)' }}>
+                ✓ {resolved.handle ? `${resolved.handle}.rekuwaypay` : 'Endereço válido'}
+              </p>
+              <p className="mt-0.5 font-mono text-xs" style={{ color: 'var(--muted)' }}>
+                {resolved.address.slice(0, 10)}...{resolved.address.slice(-6)}
+              </p>
+            </div>
           )}
 
+          {/* Error */}
           {payState === 'error' && errorMsg && (
             <div
               className="mt-3 flex items-start gap-2 rounded-xl px-4 py-3 text-xs"
@@ -235,9 +342,15 @@ export function PagarScreen({ account, onBack, onSuccess }: PagarScreenProps) {
             </div>
           )}
 
+          <p className="mt-3 text-xs" style={{ color: 'var(--subtle)' }}>
+            Digite um handle como <strong>landerson.rekuwaypay</strong> e toque em{' '}
+            <Search className="inline size-3" /> para localizar, ou cole um endereço{' '}
+            <strong>0x...</strong> diretamente.
+          </p>
+
           <div className="mt-auto pt-6">
             <button
-              disabled={!isValidAddress || payState === 'sending'}
+              disabled={payState !== 'resolved' || payState === ('sending' as PayState)}
               onClick={handleSend}
               className="flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-semibold transition-all active:scale-[0.98] disabled:opacity-40"
               style={{ background: 'var(--accent)', color: '#000' }}
@@ -248,11 +361,11 @@ export function PagarScreen({ account, onBack, onSuccess }: PagarScreenProps) {
                   Enviando...
                 </>
               ) : (
-                'Confirmar envio'
+                `Confirmar envio — ${displayAmount} USDC`
               )}
             </button>
             <p className="mt-3 text-center text-xs" style={{ color: 'var(--subtle)' }}>
-              Transação gasless via Circle Gas Station
+              Gasless via Circle Gas Station
             </p>
           </div>
         </div>

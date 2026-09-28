@@ -104,23 +104,56 @@ export function LoginScreen({ onRegister, onLogin, loading, error }: LoginScreen
                 className="mb-1.5 block text-xs font-medium"
                 style={{ color: 'var(--muted)' }}
               >
-                Nome / usuário
+                Escolha seu nome de pagamento
               </label>
-              <input
-                id="username"
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="ex: joao.silva"
-                autoComplete="username"
-                required
-                className="w-full rounded-xl px-4 py-3 text-sm outline-none"
-                style={{
-                  background: 'var(--surface-muted)',
-                  color: 'var(--ink)',
-                  border: '1px solid var(--border)',
-                }}
-              />
+              <div className="relative">
+                <input
+                  id="username"
+                  type="text"
+                  value={username}
+                  onChange={(e) =>
+                    setUsername(
+                      e.target.value
+                        .toLowerCase()
+                        .replace(/[^a-z0-9_]/g, '')
+                        .slice(0, 32),
+                    )
+                  }
+                  placeholder="ex: landerson"
+                  autoComplete="username"
+                  autoCapitalize="none"
+                  required
+                  className="w-full rounded-xl px-4 py-3 text-sm outline-none"
+                  style={{
+                    background: 'var(--surface-muted)',
+                    color: 'var(--ink)',
+                    border: '1px solid var(--border)',
+                  }}
+                />
+              </div>
+
+              {/* Live preview */}
+              {username.length >= 3 && (
+                <div
+                  className="mt-2 flex items-center gap-2 rounded-xl px-4 py-2.5"
+                  style={{
+                    background: 'rgba(34,197,94,0.08)',
+                    border: '1px solid rgba(34,197,94,0.2)',
+                  }}
+                >
+                  <span className="text-xs" style={{ color: 'var(--muted)' }}>
+                    Sua chave de pagamento:
+                  </span>
+                  <span className="text-sm font-bold" style={{ color: 'var(--success)' }}>
+                    {username}.rekuwaypay
+                  </span>
+                </div>
+              )}
+              {username.length > 0 && username.length < 3 && (
+                <p className="mt-1 text-xs" style={{ color: 'var(--subtle)' }}>
+                  Mínimo 3 caracteres. Apenas letras, números e _.
+                </p>
+              )}
             </div>
 
             <button
