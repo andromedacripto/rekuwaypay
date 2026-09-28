@@ -44,6 +44,7 @@ export const bundlerClient = createBundlerClient({
 
 // ── credential persistence ────────────────────────────────────────────────────
 const CRED_KEY = 'rekuway_passkey_credential'
+const HANDLE_KEY = 'rekuway_handle'
 
 export function saveCredential(cred: P256Credential): void {
   try {
@@ -65,8 +66,25 @@ export function loadCredential(): P256Credential | null {
 export function clearCredential(): void {
   try {
     localStorage.removeItem(CRED_KEY)
+    localStorage.removeItem(HANDLE_KEY)
   } catch {
     /* storage unavailable */
+  }
+}
+
+export function saveHandle(handle: string): void {
+  try {
+    localStorage.setItem(HANDLE_KEY, handle)
+  } catch {
+    /* noop */
+  }
+}
+
+export function loadHandle(): string {
+  try {
+    return localStorage.getItem(HANDLE_KEY) ?? ''
+  } catch {
+    return ''
   }
 }
 

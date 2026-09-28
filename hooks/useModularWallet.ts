@@ -8,6 +8,8 @@ import {
   restoreSession,
   clearCredential,
   sendUsdc,
+  saveHandle,
+  loadHandle,
 } from '@/lib/modular-wallet'
 
 export type WalletState = 'idle' | 'loading' | 'ready' | 'error'
@@ -15,6 +17,7 @@ export type WalletState = 'idle' | 'loading' | 'ready' | 'error'
 export interface ModularWalletSession {
   account: SmartAccount | null
   address: string | null
+  handle: string
   state: WalletState
   error: string | null
   register: (username: string) => Promise<void>
@@ -27,9 +30,11 @@ export function useModularWallet(): ModularWalletSession {
   const [account, setAccount] = useState<SmartAccount | null>(null)
   const [state, setState] = useState<WalletState>('loading')
   const [error, setError] = useState<string | null>(null)
+  const [handle, setHandle] = useState<string>('')
 
   // Restore session from localStorage on mount
   useEffect(() => {
+    setHandle(loadHandle())
     restoreSession()
       .then((acc) => {
         if (acc) {
@@ -49,6 +54,9 @@ export function useModularWallet(): ModularWalletSession {
       const { account: acc } = await registerPasskey(username)
       setAccount(acc)
       setState('ready')
+      // Save handle locally immediately so UI updates
+      saveHandle(username)
+      setHandle(username)
       // Persist wallet + handle to DB
       await Promise.all([
         fetch('/api/wallets', {
@@ -77,6 +85,19 @@ export function useModularWallet(): ModularWalletSession {
       const { account: acc } = await loginPasskey()
       setAccount(acc)
       setState('ready')
+      // Restore handle from DB
+      try {
+        const r = await fetch(`/api/users?address=${acc.address}`)
+        if (r.ok) {
+          const d = (await r.json()) as { handle?: string }
+          if (d.handle) {
+            saveHandle(d.handle)
+            setHandle(d.handle)
+          }
+        }
+      } catch {
+        /* noop */
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Erro ao fazer login'
       setError(msg)
@@ -88,6 +109,7 @@ export function useModularWallet(): ModularWalletSession {
   const logout = useCallback(() => {
     clearCredential()
     setAccount(null)
+    setHandle('')
     setState('idle')
     setError(null)
   }, [])
@@ -103,6 +125,7 @@ export function useModularWallet(): ModularWalletSession {
   return {
     account,
     address: account?.address ?? null,
+    handle,
     state,
     error,
     register,

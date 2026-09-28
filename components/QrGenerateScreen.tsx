@@ -10,6 +10,7 @@ interface QrGenerateScreenProps {
   amount: number
   amountStr: string
   txId: string
+  walletAddress?: string
   onNavigate: (screen: Screen, data?: Partial<Transaction>) => void
   onCancel: () => void
 }
@@ -18,17 +19,20 @@ export function QrGenerateScreen({
   amount,
   amountStr,
   txId,
+  walletAddress,
   onNavigate,
   onCancel,
 }: QrGenerateScreenProps) {
   const [seconds, setSeconds] = useState(5 * 60)
   const [status, setStatus] = useState<'waiting' | 'found' | 'expired'>('waiting')
   const [qrDataUrl, setQrDataUrl] = useState<string>('')
-  const { address } = useAccount()
+  const { address: wagmiAddress } = useAccount()
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
+  // Use passkey wallet address first, fall back to wagmi connected wallet
+  const address = (walletAddress ?? wagmiAddress) as `0x${string}` | undefined
+
   // Build QR payload: EIP-681 style URI for USDC transfer on Arc Testnet
-  // erc20:0xUSDC@chainId/transfer?address=TO&uint256=AMOUNT_RAW
   const usdcAddress = '0x3600000000000000000000000000000000000000'
   const amountRaw = BigInt(Math.round(amount * 1_000_000)).toString()
   const qrPayload = address

@@ -45,7 +45,7 @@ export function RekuwayApp() {
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null)
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [lastReceivedTx, setLastReceivedTx] = useState<Partial<Transaction>>({})
-  const [userHandle, setUserHandle] = useState<string>('')
+  const userHandle = wallet.handle
 
   // Active address: passkey smart wallet takes priority
   const activeAddress = (wallet.address ?? wagmiAddress ?? null) as `0x${string}` | null
@@ -77,17 +77,6 @@ export function RekuwayApp() {
   useEffect(() => {
     void loadTransactions()
   }, [loadTransactions])
-
-  // Load the user's handle from DB when address is known
-  useEffect(() => {
-    if (!activeAddress) return
-    fetch(`/api/users?address=${activeAddress}`)
-      .then((r) => r.json())
-      .then((d: { handle?: string }) => {
-        if (d.handle) setUserHandle(d.handle)
-      })
-      .catch(() => undefined)
-  }, [activeAddress])
 
   function navigate(nav: NavScreen | 'pagar') {
     if (nav === 'pagar') {
@@ -187,6 +176,7 @@ export function RekuwayApp() {
             amount={parseFloat(cobrarAmount)}
             amountStr={cobrarAmount}
             txId={pendingTxId}
+            walletAddress={activeAddress ?? undefined}
             onNavigate={handleNavigate}
             onCancel={() => setScreen('cobrar')}
           />
