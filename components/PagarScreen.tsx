@@ -1,11 +1,20 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronLeft, Loader2, CheckCircle, ExternalLink, AlertCircle, Search } from 'lucide-react'
+import {
+  ChevronLeft,
+  Loader2,
+  CheckCircle,
+  ExternalLink,
+  AlertCircle,
+  Search,
+  ScanLine,
+} from 'lucide-react'
 import type { SmartAccount } from 'viem/account-abstraction'
 import { isAddress } from 'viem'
 import { sendUsdc } from '@/lib/modular-wallet'
 import { buildTxExplorerUrl } from '@/src/onchain-facts'
+import { QrScannerModal } from './QrScannerModal'
 
 const ARC_TESTNET_ID = 5042002
 
@@ -30,6 +39,7 @@ export function PagarScreen({ account, onBack, onSuccess }: PagarScreenProps) {
   const [payState, setPayState] = useState<PayState>('form')
   const [txHash, setTxHash] = useState<string | null>(null)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [showScanner, setShowScanner] = useState(false)
 
   const displayAmount = amount === '0' ? '0.00' : parseFloat(amount).toFixed(2)
   const amountNum = parseFloat(amount)
@@ -115,6 +125,40 @@ export function PagarScreen({ account, onBack, onSuccess }: PagarScreenProps) {
 
   const explorerUrl = txHash ? buildTxExplorerUrl(ARC_TESTNET_ID, txHash) : null
 
+  // Parse a scanned QR payload — supports:
+  // 1. EIP-681: ethereum:0xUSDC@5042002/transfer?address=0xTO&uint256=AMOUNT
+  // 2. Plain 0x address
+  // 3. handle.rekuwaypay
+  function handleScanResult(text: string) {
+    setShowScanner(false)
+    let addr = ''
+    try {
+      // EIP-681
+      const eip681 = text.match(/[?&]address=(0x[0-9a-fA-F]{40})/i)
+      if (eip681) {
+        addr = eip681[1]
+      } else if (/^0x[0-9a-fA-F]{40}$/i.test(text.trim())) {
+        addr = text.trim()
+      } else {
+        // treat as handle
+        addr = text.trim()
+      }
+    } catch {
+      addr = text.trim()
+    }
+    setDestination(addr)
+    setResolved(null)
+    setPayState('form')
+    setErrorMsg(null)
+    // Auto-resolve if it's a raw address
+    if (isAddress(addr)) {
+      setResolved({ handle: '', address: addr })
+      setPayState('resolved')
+    }
+    // Move to destination step if still on amount
+    setStep('destination')
+  }
+
   // ── Success screen ─────────────────────────────────────────────────────────
   if (payState === 'success') {
     return (
@@ -175,6 +219,9 @@ export function PagarScreen({ account, onBack, onSuccess }: PagarScreenProps) {
 
   return (
     <div className="flex min-h-dvh flex-col" style={{ background: 'var(--bg)' }}>
+      {showScanner && (
+        <QrScannerModal onResult={handleScanResult} onClose={() => setShowScanner(false)} />
+      )}
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-4">
         <button
@@ -234,6 +281,20 @@ export function PagarScreen({ account, onBack, onSuccess }: PagarScreenProps) {
           >
             Continuar
           </button>
+
+          {/* Quick scan — skip amount and go straight to camera */}
+          <button
+            onClick={() => setShowScanner(true)}
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-semibold transition-all active:scale-[0.98]"
+            style={{
+              background: 'var(--surface-muted)',
+              color: 'var(--ink)',
+              border: '1px solid var(--border)',
+            }}
+          >
+            <ScanLine className="size-4" />
+            Escanear QR Code
+          </button>
         </div>
       ) : (
         // ── Step 2: Destination ────────────────────────────────────────────────
@@ -254,13 +315,27 @@ export function PagarScreen({ account, onBack, onSuccess }: PagarScreenProps) {
             </p>
           </div>
 
-          <label
-            htmlFor="destination"
-            className="mb-1.5 block text-xs font-medium"
-            style={{ color: 'var(--muted)' }}
-          >
-            Chave Rekuway Pay ou endereço 0x
-          </label>
+          <div className="mb-1.5 flex items-center justify-between">
+            <label
+              htmlFor="destination"
+              className="text-xs font-medium"
+              style={{ color: 'var(--muted)' }}
+            >
+              Chave Rekuway Pay ou endereço 0x
+            </label>
+            <button
+              onClick={() => setShowScanner(true)}
+              className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all active:scale-95"
+              style={{
+                background: 'var(--surface-card)',
+                color: 'var(--ink)',
+                border: '1px solid var(--border)',
+              }}
+            >
+              <ScanLine className="size-3.5" />
+              Escanear QR
+            </button>
+          </div>
           <div className="flex gap-2">
             <input
               id="destination"
