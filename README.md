@@ -1,144 +1,162 @@
 # Rekuway Pay
 
-Maquininha de pagamentos em USDC na Arc Network.
+> A USDC payment terminal built on Arc Network — fast, gasless, and non-custodial.
 
 ![Next.js](https://img.shields.io/badge/Next.js-14-black?logo=next.js)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?logo=typescript)
-![Arc Testnet](https://img.shields.io/badge/Arc-Testnet-purple)
-![Circle](https://img.shields.io/badge/Circle-Modular%20Wallets-green)
+![Circle](https://img.shields.io/badge/Circle-Modular_Wallets-00D4A8?logo=circle)
+![Arc Network](https://img.shields.io/badge/Arc-Testnet-6366f1)
+![License](https://img.shields.io/badge/license-MIT-green)
 
-## Sobre
+---
 
-Rekuway Pay é um app de pagamentos onchain que permite cobrar, enviar e receber USDC na Arc Network sem precisar de banco ou intermediários. O cliente cria uma conta com biometria (passkey) e paga via QR Code — sem seed phrase, sem taxa de gas.
+## Overview
 
-## Funcionalidades
+Rekuway Pay is a point-of-sale app that lets merchants accept USDC payments on Arc Network instantly. Customers scan a QR code and pay from any EVM-compatible wallet. Transactions are confirmed on-chain in seconds, with zero gas fees for the end user thanks to Circle Gas Station.
 
-- **Cobrar** — numpad para digitar o valor + QR Code EIP-681 gerado na hora
-- **Pagamento detectado automaticamente** — polling onchain a cada 5s
-- **Enviar USDC** — transferência gasless via Circle Gas Station
-- **Receber** — QR Code com endereço da wallet
-- **Histórico de transações** — persistido no PostgreSQL com link para o explorer
-- **Login sem senha** — passkey (biometria / Face ID / PIN) via Circle Modular Wallets
-- **Conta instantânea** — smart wallet ERC-4337 criada no primeiro acesso
+---
 
-## Stack
+## Features
 
-| Camada         | Tecnologia                                  |
-| -------------- | ------------------------------------------- |
-| Framework      | Next.js 14 App Router                       |
-| Linguagem      | TypeScript 5                                |
-| Estilo         | Tailwind CSS                                |
-| Blockchain     | Arc Testnet (USDC nativo)                   |
-| Wallets        | Circle Modular Wallets (passkey / ERC-4337) |
-| Banco de dados | PostgreSQL (Docker)                         |
-| Qualidade      | ESLint + Prettier + Husky                   |
+- **Passkey login** — passwordless account creation using WebAuthn (Face ID / fingerprint / device PIN) via Circle Modular Wallets
+- **Charge** — enter an amount, generate a QR code (EIP-681), and wait for automatic on-chain confirmation
+- **Send USDC** — gasless transfer to any address on Arc Testnet via `sendUserOperation`
+- **Receive** — display your wallet address and QR for incoming payments
+- **Transaction history** — persisted in PostgreSQL, with real tx hashes linked to ArcScan
+- **Real-time polling** — detects incoming USDC transfers via `eth_getLogs` every 5 seconds
 
-## Pré-requisitos
+---
+
+## Tech Stack
+
+| Layer        | Technology                             |
+| ------------ | -------------------------------------- |
+| Framework    | Next.js 14 App Router                  |
+| Language     | TypeScript 5                           |
+| Styling      | Tailwind CSS v3                        |
+| Wallet       | Circle Modular Wallets (ERC-4337 MSCA) |
+| Chain        | Arc Testnet (USDC as native gas)       |
+| Database     | PostgreSQL (Docker)                    |
+| Code quality | ESLint 8 + Prettier + Husky pre-commit |
+
+---
+
+## Getting Started
+
+### Prerequisites
 
 - [Bun](https://bun.sh) >= 1.0
-- [Docker](https://docker.com) (para o PostgreSQL)
-- Conta no [Circle Console](https://console.circle.com) com Client Key configurada
+- [Docker](https://www.docker.com) (for PostgreSQL)
+- A Circle developer account — [console.circle.com](https://console.circle.com)
 
-## Configuração
-
-### 1. Clone o repositório
+### 1. Clone the repo
 
 ```bash
 git clone https://github.com/andromedacripto/rekuwaypay.git
 cd rekuwaypay
 ```
 
-### 2. Instale as dependências
+### 2. Install dependencies
 
 ```bash
 bun install
 ```
 
-### 3. Configure as variáveis de ambiente
+### 3. Configure environment variables
 
-Crie um arquivo `.env` na raiz:
+Copy `.env.example` to `.env` and fill in the values:
 
-```env
-# Circle Modular Wallets
-NEXT_PUBLIC_CLIENT_KEY=TEST-CLIENT-KEY:sua_chave_aqui
-NEXT_PUBLIC_CLIENT_URL=https://modular-sdk.circle.com/v1/rpc/w3s/buidl
-
-# PostgreSQL
-DATABASE_URL=postgresql://rekuway:rekuway@localhost:5432/rekuway
+```bash
+cp .env.example .env
 ```
 
-> Obtenha sua Client Key em: Console → Keys → Client Keys
+| Variable                 | Description                                              |
+| ------------------------ | -------------------------------------------------------- |
+| `NEXT_PUBLIC_CLIENT_KEY` | Circle Client Key from Console → Keys → Client Keys      |
+| `NEXT_PUBLIC_CLIENT_URL` | Fixed: `https://modular-sdk.circle.com/v1/rpc/w3s/buidl` |
+| `DATABASE_URL`           | PostgreSQL connection string                             |
 
-### 4. Configure o Circle Console
-
-1. **Client Key** → Allowed Domain: seu domínio (ex: `localhost:5173`)
-2. **Modular Wallets → Passkeys → Domain Name**: mesmo domínio
-
-### 5. Suba o banco de dados
+### 4. Start PostgreSQL
 
 ```bash
 docker compose up -d
 ```
 
-### 6. Inicie o servidor de desenvolvimento
+### 5. Run the dev server
 
 ```bash
 bun run dev
 ```
 
-Acesse: http://localhost:5173
+Open [http://localhost:5173](http://localhost:5173).
 
-## Scripts
+---
 
-```bash
-bun run dev        # Servidor de desenvolvimento
-bun run build      # Build de produção
-bun run lint       # ESLint
-bun run lint:fix   # ESLint com auto-fix
-bun run format     # Prettier
-bun run typecheck  # TypeScript sem emitir
+## Circle Console Setup
+
+Before using passkey login you must configure the Circle Console:
+
+1. **Console → Keys → Client Keys** — create a Client Key and copy it to `NEXT_PUBLIC_CLIENT_KEY`
+2. **Allowed Domain** — set to your app's exact hostname (e.g. `localhost:5173` for local dev)
+3. **Console → Wallets → Modular Wallets → Configurator → Passkeys → Domain Name** — same hostname
+
+> Passkeys are domain-bound. The domain here must match the origin your app runs on exactly.
+
+---
+
+## Project Structure
+
 ```
-
-## Estrutura do projeto
-
-```
-rekuwaypay/
-├── app/                    # Next.js App Router
-│   ├── api/                # Route Handlers
-│   │   ├── transactions/   # CRUD de transações
-│   │   ├── wallets/        # Registro de wallets
-│   │   ├── poll/           # Polling onchain
-│   │   └── users/          # Usuários
+├── app/                  # Next.js App Router pages and API routes
+│   ├── api/
+│   │   ├── transactions/ # CRUD for payment records
+│   │   ├── wallets/      # Wallet registry
+│   │   ├── poll/         # On-chain payment detection (eth_getLogs)
+│   │   └── users/        # User registration
 │   ├── layout.tsx
 │   └── page.tsx
-├── components/             # Componentes React
-│   ├── LoginScreen.tsx     # Tela de login/cadastro
-│   ├── CobrarScreen.tsx    # Numpad de cobrança
-│   ├── QrGenerateScreen.tsx
-│   ├── PagarScreen.tsx     # Enviar USDC
-│   ├── ReceberScreen.tsx
-│   ├── TransacoesScreen.tsx
-│   └── ...
-├── hooks/
-│   └── useModularWallet.ts # Hook de sessão passkey
+├── components/           # UI screens (Cobrar, QR, Pagar, Receber, etc.)
+├── hooks/                # useModularWallet — passkey session management
 ├── lib/
-│   ├── modular-wallet.ts   # Circle SDK helpers
-│   ├── db.ts               # PostgreSQL client
-│   └── types.ts
-└── docker-compose.yml
+│   ├── modular-wallet.ts # Circle SDK: passkey transport + smart account + sendUsdc
+│   ├── db.ts             # PostgreSQL client (pg)
+│   └── types.ts          # Shared TypeScript types
+└── docker-compose.yml    # PostgreSQL service
 ```
 
-## Rede
+---
 
-O app roda na **Arc Testnet** por padrão:
+## Available Scripts
 
-- RPC: `https://rpc.testnet.arc.io`
-- Chain ID: `5042002`
-- Explorer: https://explorer.testnet.arc.io
-- USDC: `0x3600000000000000000000000000000000000000`
+```bash
+bun run dev          # Start dev server on port 5173
+bun run build        # Production build
+bun run lint         # ESLint
+bun run lint:fix     # ESLint --fix
+bun run format       # Prettier --write
+bun run typecheck    # tsc --noEmit
+```
 
-Para obter USDC de teste, use o faucet em [faucet.circle.com](https://faucet.circle.com).
+---
 
-## Licença
+## Testnet Funding
 
-MIT
+To test payments, get free USDC on Arc Testnet:
+
+1. Connect your wallet in the app
+2. Use the **"Get test USDC"** button in Arc Studio sidebar, or
+3. Visit [faucet.circle.com](https://faucet.circle.com) and select Arc Testnet
+
+---
+
+## Security Notes
+
+- `.env` and `.circle/` are in `.gitignore` — never commit secrets
+- Passkey credentials are stored in `localStorage` for demo purposes only — use `httpOnly` cookies in production
+- This app runs on **testnet only** — do not use real funds
+
+---
+
+## License
+
+MIT © 2026 Rekuway Pay
