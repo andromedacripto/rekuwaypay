@@ -33,7 +33,8 @@ ENV HOSTNAME="0.0.0.0"
 # standalone output
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/public ./public
+# public/ may be empty but must exist for Next.js standalone
+COPY --from=builder /app/public* ./public/
 
 EXPOSE 3000
 CMD ["bun", "server.js"]
