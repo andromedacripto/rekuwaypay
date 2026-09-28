@@ -1,0 +1,29 @@
+# Next.js
+.next/
+out/
+
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+
+# Environment variables
+.env
+.env.local
+.env.production
+.env*.local
+
+# Circle secrets
+.circle/
+
+# Foundry
+contracts/out/
+contracts/cache/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
