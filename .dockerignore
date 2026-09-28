@@ -7,3 +7,8 @@ node_modules
 contracts/out/
 contracts/cache/
 *.log
+scripts/
+contracts/
+.foundry-version
+foundry.toml
+remappings.txt
